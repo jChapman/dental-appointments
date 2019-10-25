@@ -42,16 +42,49 @@ makeMeeting(10, 45, 11, 45, "Firing Dan")
 makeMeeting(15, 0, 16, 40, "Doin stuff")
 // 20 minutes until 5
 
+// Get current week
+// Filter events not in this week or before now
+// Find a slot with the given time after the current date
 
+
+//Cleanings, which take 30 minutes
+//Fillings, which take 1 hour
+//Root Canals, which take 1 hour and 30 minutes.
+
+const startOfWeekFromMoment = (mom) => {
+  return mom.startOf('isoweek')
+}
+
+let currentWeekStart = startOfWeekFromMoment(moment())
+
+const handleOnNaviage = (newDate) => {
+  currentWeekStart = startOfWeekFromMoment(moment(newDate))
+};
+const scheduleCleaning = () => {
+  const meeting = {
+    start: new Date(currentWeekStart.clone().set('hours', 8)),
+    end: new Date(currentWeekStart.clone().set('hours', 8).set('minutes', 30)),
+    title: "Cleaning"
+  };
+  console.log(meeting)
+  events.push(meeting);
+  console.log(events.length)
+};
 
 function App() {
   return (
     <div className="App" height="20px">
       <h1>Dental Scheduler</h1>
-      <button>Schedule Cleaning</button>
+      <button onClick={scheduleCleaning}>Schedule Cleaning</button>
       <button>Schedule Filling</button>
       <button>Schedule Root Canal</button>
-      <Calendar localizer={localizer} events={events} defaultView={Views.WEEK}/> 
+      <Calendar
+        localizer={localizer}
+        events={events}
+        defaultView={Views.WORK_WEEK}
+        views={[Views.WORK_WEEK]}
+        onNavigate={handleOnNaviage}
+      />
     </div>
   );
 }

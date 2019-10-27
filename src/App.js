@@ -52,9 +52,6 @@ function makeDummyEvents() {
 // Filter events not in this week or before now
 // Find a slot with the given time after the current date
 
-//Cleanings, which take 30 minutes
-//Fillings, which take 1 hour
-//Root Canals, which take 1 hour and 30 minutes.
 
 const startOfWeekFromMoment = mom => {
   return mom
@@ -136,18 +133,29 @@ class Scheduler extends React.Component {
     return blocks;
   };
 
-  scheduleCleaning = () => {
-    let blocks = this.findCandidateTimes(30);
+  scheduleThing = (title, duration) => {
+    let blocks = this.findCandidateTimes(duration);
     this.setState(oldState => ({
       events: oldState.events.concat(blocks.map(({start, end}) => ({start, end, title: "Click to schedule", temp: true}))),
-      schedulingEventLength: 30
+      schedulingEventLength: duration,
+      schedulingEventTitle: title
     }));
+
+  }
+
+//Cleanings, which take 30 minutes
+  scheduleCleaning = () => {
+    this.scheduleThing("Cleaning", 30)
   };
 
+//Fillings, which take 1 hour
   scheduleFilling = () => {
-    let blocks = this.findCandidateTimes(60);
-    this.clearTemp();
-    //this.setState(oldState => ({ events: oldState.events.concat(blocks.map(({start, end}) => ({start, end, title: "Click to schedule", temp: true}))) }));
+    this.scheduleThing("Filling", 60)
+  };
+
+//Root Canals, which take 1 hour and 30 minutes.
+  scheduleRoot = () => {
+    this.scheduleThing("Root Canal", 90)
   };
 
   selectEvent = (event) => {
@@ -156,11 +164,10 @@ class Scheduler extends React.Component {
     let scheduledEvent = {
       start: new Date(event.start),
       end: new Date(moment(event.start).add(this.state.schedulingEventLength, "minutes")),
-      title: "Scheduled Event"
+      title: this.state.schedulingEventTitle
     };
     console.log(scheduledEvent)
-    this.setState(({events})=> ({events: events.concat([scheduledEvent])}))
-    //this.clearTemp();
+    this.setState(({events})=> ({events: events.filter(event => !event.temp).concat([scheduledEvent])}))
   }
 
   render = () => {
@@ -169,7 +176,7 @@ class Scheduler extends React.Component {
         <h1>Dental Scheduler</h1>
         <button onClick={this.scheduleCleaning}>Schedule Cleaning</button>
         <button onClick={this.scheduleFilling}>Schedule Filling</button>
-        <button>Schedule Root Canal</button>
+        <button onClick={this.scheduleRoot}>Schedule Root Canal</button>
         <Calendar
           localizer={localizer}
           events={this.state.events}

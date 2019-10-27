@@ -20,14 +20,15 @@ const customSlotPropGetter = event => {
   return {}
 }
 
-
 class Scheduler extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
       events: makeDummyEvents(),
       startOfWeek: startOfWeekFromMoment(moment().add(1, "day")),
-      schedulingEventLength: 0
+      schedulingEventLength: 0,
+      schedulingEventTitle: '',
+      currentlyScheduling: false
     };
   }
 
@@ -35,13 +36,15 @@ class Scheduler extends React.Component {
     this.setState({
       startOfWeek: startOfWeekFromMoment(moment(newDate))
     });
+    this.clearTemp();
+    this.scheduleThing(this.state.schedulingEventTitle, this.state.schedulingEventLength);
   };
 
-  clearTemp = ()=> {
+  clearTemp = () => {
     this.setState({
-      events: this.state.events.filter((event) => !event.temp)
+      events: this.state.events.filter(event => !event.temp)
     });
-  }
+  };
 
   findCandidateTimes = durationInMinutes => {
     let currentTime = this.state.startOfWeek;
@@ -90,47 +93,69 @@ class Scheduler extends React.Component {
   scheduleThing = (title, duration) => {
     let blocks = this.findCandidateTimes(duration);
     this.setState(oldState => ({
-      events: oldState.events.concat(blocks.map(({start, end}) => ({start, end, title: "Click to schedule", temp: true}))),
+      events: oldState.events.concat(
+        blocks.map(({ start, end }) => ({
+          start,
+          end,
+          title: "Click to schedule",
+          temp: true
+        }))
+      ),
       schedulingEventLength: duration,
-      schedulingEventTitle: title
+      schedulingEventTitle: title,
+      currentlyScheduling: true
     }));
+  };
 
-  }
-
-//Cleanings, which take 30 minutes
+  //Cleanings, which take 30 minutes
   scheduleCleaning = () => {
-    this.scheduleThing("Cleaning", 30)
+    this.scheduleThing("Cleaning", 30);
   };
 
-//Fillings, which take 1 hour
+  //Fillings, which take 1 hour
   scheduleFilling = () => {
-    this.scheduleThing("Filling", 60)
+    this.scheduleThing("Filling", 60);
   };
 
-//Root Canals, which take 1 hour and 30 minutes.
+  //Root Canals, which take 1 hour and 30 minutes.
   scheduleRoot = () => {
-    this.scheduleThing("Root Canal", 90)
+    this.scheduleThing("Root Canal", 90);
   };
 
-  selectEvent = (event) => {
-    if (!event.temp)
-      return
+  stopScheduling = () => {
+    this.clearTemp();
+    this.setState({ currentlyScheduling: false });
+  };
+
+  selectEvent = event => {
+    if (!event.temp) return;
     let scheduledEvent = {
       start: new Date(event.start),
-      end: new Date(moment(event.start).add(this.state.schedulingEventLength, "minutes")),
+      end: new Date(
+        moment(event.start).add(this.state.schedulingEventLength, "minutes")
+      ),
       title: this.state.schedulingEventTitle
     };
-    console.log(scheduledEvent)
-    this.setState(({events})=> ({events: events.filter(event => !event.temp).concat([scheduledEvent])}))
-  }
+    this.setState(({ events }) => ({
+      events: events.filter(event => !event.temp).concat([scheduledEvent]),
+      currentlyScheduling: false
+    }));
+  };
 
   render = () => {
     return (
       <div className="App" height="20px">
         <h1>Dental Scheduler</h1>
-        <button onClick={this.scheduleCleaning}>Schedule Cleaning</button>
-        <button onClick={this.scheduleFilling}>Schedule Filling</button>
-        <button onClick={this.scheduleRoot}>Schedule Root Canal</button>
+        {!this.state.currentlyScheduling && (
+          <div>
+            <button onClick={this.scheduleCleaning}>Schedule Cleaning</button>
+            <button onClick={this.scheduleFilling}>Schedule Filling</button>
+            <button onClick={this.scheduleRoot}>Schedule Root Canal</button>
+          </div>
+        )}
+        {this.state.currentlyScheduling && (
+          <button onClick={this.stopScheduling}>Cancel Scheduling</button>
+        )}
         <Calendar
           localizer={localizer}
           events={this.state.events}

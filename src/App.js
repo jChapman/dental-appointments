@@ -26,9 +26,9 @@ function makeDummyEvents() {
 
   // Let's make some fake appointments for today week...
   const makeMeeting = (hourStart, minuteStart, hourEnd, minuteEnd, title) => {
-    const start = new Date();
+    const start = new Date(moment().add(1, "day"));
     start.setHours(hourStart, minuteStart, 0, 0);
-    const end = new Date();
+    const end = new Date(moment().add(1, "day"));
     end.setHours(hourEnd, minuteEnd, 0, 0);
     const meeting = {
       start,
@@ -57,15 +57,26 @@ function makeDummyEvents() {
 //Root Canals, which take 1 hour and 30 minutes.
 
 const startOfWeekFromMoment = mom => {
-  return mom.startOf("isoweek");
+  return mom
+    .startOf("isoweek")
+    .set("hours", 7)
+    .set("minutes", 59);
 };
+
+const customSlotPropGetter = event => {
+  if (event.temp)
+    return { className: "temp-event" }
+  return {}
+}
+
 
 class Scheduler extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
       events: makeDummyEvents(),
-      startOfWeek: startOfWeekFromMoment(moment())
+      startOfWeek: startOfWeekFromMoment(moment().add(1, "day")),
+      schedulingEventLength: 0
     };
   }
 
@@ -75,29 +86,89 @@ class Scheduler extends React.Component {
     });
   };
 
-  scheduleCleaning = () => {
-    const meeting = {
-      start: new Date(this.state.startOfWeek.clone().set("hours", 8)),
-      end: new Date(
-        this.state.startOfWeek
-          .clone()
+  clearTemp = ()=> {
+    this.setState({
+      events: this.state.events.filter((event) => !event.temp)
+    });
+  }
+
+  findCandidateTimes = durationInMinutes => {
+    let currentTime = this.state.startOfWeek;
+    if (currentTime < moment())
+      currentTime = moment().set(
+        "minutes",
+        Math.ceil(moment().get("minutes") / 5) * 5
+      ); // Skip to the closest 5 minutes in the future
+    let blocks = [];
+    while (currentTime.get("day") < 6) {
+      let endOfDay = currentTime
+        .clone()
+        .set("hours", 17)
+        .set("minutes", 0);
+      let nextEvent = { start: endOfDay, end: endOfDay };
+      // Find the next appointment TODO: should just order the appts so we don't have to search ever time
+      for (let event of this.state.events) {
+        let movent = moment(event.start);
+        if (
+          movent.isSame(currentTime, "day") &&
+          movent > currentTime &&
+          movent <= moment(nextEvent.start)
+        ) {
+          nextEvent = event;
+        }
+      }
+      if (
+        moment(nextEvent.start).diff(currentTime, "minutes") >=
+        durationInMinutes
+      ) {
+        blocks.push({
+          start: new Date(currentTime),
+          end: new Date(nextEvent.start)
+        });
+      }
+      currentTime = moment(nextEvent.end);
+      if (currentTime.get("hours") >= 17)
+        currentTime = currentTime
+          .add(1, "day")
           .set("hours", 8)
-          .set("minutes", 30)
-      ),
-      title: "Cleaning"
-    };
-    console.log(meeting);
+          .set("minutes", 0);
+    }
+    return blocks;
+  };
+
+  scheduleCleaning = () => {
+    let blocks = this.findCandidateTimes(30);
     this.setState(oldState => ({
-      events: oldState.events.concat([meeting])
+      events: oldState.events.concat(blocks.map(({start, end}) => ({start, end, title: "Click to schedule", temp: true}))),
+      schedulingEventLength: 30
     }));
   };
+
+  scheduleFilling = () => {
+    let blocks = this.findCandidateTimes(60);
+    this.clearTemp();
+    //this.setState(oldState => ({ events: oldState.events.concat(blocks.map(({start, end}) => ({start, end, title: "Click to schedule", temp: true}))) }));
+  };
+
+  selectEvent = (event) => {
+    if (!event.temp)
+      return
+    let scheduledEvent = {
+      start: new Date(event.start),
+      end: new Date(moment(event.start).add(this.state.schedulingEventLength, "minutes")),
+      title: "Scheduled Event"
+    };
+    console.log(scheduledEvent)
+    this.setState(({events})=> ({events: events.concat([scheduledEvent])}))
+    //this.clearTemp();
+  }
 
   render = () => {
     return (
       <div className="App" height="20px">
         <h1>Dental Scheduler</h1>
         <button onClick={this.scheduleCleaning}>Schedule Cleaning</button>
-        <button>Schedule Filling</button>
+        <button onClick={this.scheduleFilling}>Schedule Filling</button>
         <button>Schedule Root Canal</button>
         <Calendar
           localizer={localizer}
@@ -105,6 +176,8 @@ class Scheduler extends React.Component {
           defaultView={Views.WORK_WEEK}
           views={[Views.WORK_WEEK]}
           onNavigate={this.handleOnNaviage}
+          onSelectEvent={this.selectEvent}
+          eventPropGetter={customSlotPropGetter}
         />
       </div>
     );
